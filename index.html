@@ -12,26 +12,16 @@
     
     <header class="border-b border-slate-700 pb-3 text-center">
       <h1 class="text-xl font-bold text-indigo-400">FitPlanner Mobile</h1>
-      <p class="text-xs text-slate-400">Procesado en Google Apps Script + Supabase</p>
     </header>
 
     <div class="space-y-3">
+      <!-- Correo Electrónico -->
       <div>
         <label class="text-xs font-semibold text-slate-400">Correo Electrónico</label>
         <input type="email" id="email" placeholder="usuario@correo.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs font-semibold text-slate-400">Peso (kg)</label>
-          <input type="number" id="peso" placeholder="75" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-slate-400">Altura (cm)</label>
-          <input type="number" id="altura" placeholder="175" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
-        </div>
-      </div>
-
+      <!-- Edad y Género -->
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-semibold text-slate-400">Edad</label>
@@ -46,9 +36,29 @@
         </div>
       </div>
 
+      <!-- Altura y Peso con Selector de Unidad -->
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Altura (cm)</label>
+          <input type="number" id="altura_cm" placeholder="175" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Peso</label>
+          <input type="number" id="peso_valor" placeholder="75" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Unidad</label>
+          <select id="peso_unidad" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+            <option value="kg">kg</option>
+            <option value="lb">lb</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Nivel de Actividad -->
       <div>
         <label class="text-xs font-semibold text-slate-400">Nivel de Actividad</label>
-        <select id="actividad" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+        <select id="nivel_actividad" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
           <option value="1.2">Sedentario (Poco o nada)</option>
           <option value="1.375">Ligero (1-3 días/semana)</option>
           <option value="1.55">Moderado (3-5 días/semana)</option>
@@ -56,39 +66,86 @@
         </select>
       </div>
 
-      <div>
-        <label class="text-xs font-semibold text-slate-400">Objetivo</label>
-        <select id="objetivo" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
-          <option value="bajar">Perder Grasa (-20%)</option>
-          <option value="mantener">Mantenimiento</option>
-          <option value="subir">Ganar Músculo (+15%)</option>
-        </select>
+      <!-- Objetivo y Tipo de Dieta -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Objetivo</label>
+          <select id="objetivo" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+            <option value="bajar">Perder Grasa (-20%)</option>
+            <option value="mantener">Mantenimiento</option>
+            <option value="subir">Ganar Músculo (+15%)</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Tipo de Dieta</label>
+          <select id="tipo_dieta" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+            <option value="estandar">Estándar</option>
+            <option value="keto">Keto / Cetogénica</option>
+            <option value="vegetariana">Vegetariana</option>
+            <option value="vegana">Vegana</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Zona Horaria y Hora Recordatorio -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Zona Horaria</label>
+          <input type="text" id="zona_horaria" value="America/Panama" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400">Recordatorio</label>
+          <input type="time" id="hora_recordatorio" value="08:00" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+        </div>
       </div>
 
       <button id="btn-enviar" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-indigo-600/30">
-        Calcular en Apps Script
+        Calcular Plan
       </button>
     </div>
 
     <!-- TARJETA DE RESULTADOS -->
-    <div id="resultado" class="hidden bg-slate-900/90 border border-slate-700 rounded-2xl p-4 space-y-3">
+    <div id="resultado" class="hidden bg-slate-900/90 border border-slate-700 rounded-2xl p-4 space-y-4">
       <div class="text-center border-b border-slate-800 pb-2">
         <p class="text-xs text-slate-400">Meta Calórica Diaria</p>
         <p id="res-tdee" class="text-3xl font-black text-indigo-400">0 <span class="text-sm font-normal text-slate-300">kcal</span></p>
       </div>
 
-      <div class="grid grid-cols-3 gap-2 text-center text-xs">
-        <div class="bg-slate-800 p-2 rounded-xl border border-slate-700/50">
-          <p class="text-slate-400 font-medium">Proteínas</p>
-          <p id="res-prot" class="font-bold text-cyan-400 text-sm">0g</p>
-        </div>
-        <div class="bg-slate-800 p-2 rounded-xl border border-slate-700/50">
-          <p class="text-slate-400 font-medium">Carbos</p>
-          <p id="res-carbs" class="font-bold text-emerald-400 text-sm">0g</p>
-        </div>
-        <div class="bg-slate-800 p-2 rounded-xl border border-slate-700/50">
-          <p class="text-slate-400 font-medium">Grasas</p>
-          <p id="res-grasas" class="font-bold text-amber-400 text-sm">0g</p>
+      <!-- PLAN ALIMENTICIO -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider text-center">Plan Alimenticio Sugerido</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="py-1 px-2">Tiempo</th>
+                <th class="py-1 px-2">Alimentos</th>
+                <th class="py-1 px-2 text-right">Calorías</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50 text-slate-300">
+              <tr>
+                <td class="py-2 px-2 font-semibold text-indigo-400">Desayuno</td>
+                <td class="py-2 px-2">2 huevos revueltos con tomate y cebolla, 1 tortilla de maíz asada, 1 taza de café negro sin azúcar.</td>
+                <td class="py-2 px-2 text-right font-medium">350 kcal</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-2 font-semibold text-indigo-400">Almuerzo</td>
+                <td class="py-2 px-2">150g de pechuga de pollo a la plancha, 1/2 taza de arroz con lentejas, ensalada de repollo y zanahoria (con limón).</td>
+                <td class="py-2 px-2 text-right font-medium">650 kcal</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-2 font-semibold text-indigo-400">Merienda</td>
+                <td class="py-2 px-2">1 manzana verde o 1 porción de papaya, puñado de almendras (15g).</td>
+                <td class="py-2 px-2 text-right font-medium">200 kcal</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-2 font-semibold text-indigo-400">Cena</td>
+                <td class="py-2 px-2">1 lata de atún en agua con cebolla y tomate, 4 galletas de soda.</td>
+                <td class="py-2 px-2 text-right font-medium">400 kcal</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -96,32 +153,36 @@
   </div>
 
   <script>
-    // URL DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx4ItohU8TK_eBCRwFDUS9XgF7uYY0apd1zzQA_7HoRyiuiEWWE-zupu6lEfwixSd9z/exec";
 
     document.getElementById('btn-enviar').addEventListener('click', async () => {
       const btn = document.getElementById('btn-enviar');
       const email = document.getElementById('email').value;
-      const peso = parseFloat(document.getElementById('peso').value);
-      const altura = parseFloat(document.getElementById('altura').value);
       const edad = parseInt(document.getElementById('edad').value);
+      const altura_cm = parseFloat(document.getElementById('altura_cm').value);
+      const peso_valor = parseFloat(document.getElementById('peso_valor').value);
 
-      if (!email || !peso || !altura || !edad) {
-        alert("Por favor completa todos los campos requeridos.");
+      if (!email || !edad || !altura_cm || !peso_valor) {
+        alert("Por favor completa los campos requeridos.");
         return;
       }
 
       btn.disabled = true;
       btn.innerText = "Procesando...";
 
+      // Estructura completa JSON que se envía al servidor
       const payload = {
         email: email,
-        peso: peso,
-        altura: altura,
         edad: edad,
         genero: document.getElementById('genero').value,
-        actividad: document.getElementById('actividad').value,
-        objetivo: document.getElementById('objetivo').value
+        altura_cm: altura_cm,
+        peso_valor: peso_valor,
+        peso_unidad: document.getElementById('peso_unidad').value,
+        nivel_actividad: document.getElementById('nivel_actividad').value,
+        objetivo: document.getElementById('objetivo').value,
+        tipo_dieta: document.getElementById('tipo_dieta').value,
+        zona_horaria: document.getElementById('zona_horaria').value,
+        hora_recordatorio: document.getElementById('hora_recordatorio').value
       };
 
       try {
@@ -133,19 +194,16 @@
         const res = await response.json();
 
         if (res.status === 'success') {
-          document.getElementById('res-tdee').childNodes[0].nodeValue = `${res.data.tdee} `;
-          document.getElementById('res-prot').textContent = `${res.data.proteinas_g}g`;
-          document.getElementById('res-carbs').textContent = `${res.data.carbos_g}g`;
-          document.getElementById('res-grasas').textContent = `${res.data.grasas_g}g`;
+          document.getElementById('res-tdee').childNodes[0].nodeValue = `${res.data.calorias_diarias_meta || res.data.tdee} `;
           document.getElementById('resultado').classList.remove('hidden');
         } else {
           alert('Error: ' + res.message);
         }
       } catch (err) {
-        alert('Error conectando con Apps Script: ' + err.message);
+        alert('Error conectando con el servidor: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerText = "Calcular en Apps Script";
+        btn.innerText = "Calcular Plan";
       }
     });
   </script>
