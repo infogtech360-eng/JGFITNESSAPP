@@ -104,11 +104,19 @@
       </button>
     </div>
 
-    <!-- TARJETA DE RESULTADOS -->
+    <!-- TARJETA DE RESULTADOS (MODIFICADA) -->
     <div id="resultado" class="hidden bg-slate-900/90 border border-slate-700 rounded-2xl p-4 space-y-4">
-      <div class="text-center border-b border-slate-800 pb-2">
-        <p class="text-xs text-slate-400">Meta Calórica Diaria</p>
-        <p id="res-tdee" class="text-3xl font-black text-indigo-400">0 <span class="text-sm font-normal text-slate-300">kcal</span></p>
+      
+      <!-- RESUMEN CALÓRICO -->
+      <div class="grid grid-cols-2 gap-2 text-center border-b border-slate-800 pb-3">
+        <div>
+          <p class="text-xs text-slate-400">Meta Diaria Recomendada</p>
+          <p id="res-meta" class="text-2xl font-black text-indigo-400">0 <span class="text-xs font-normal text-slate-300">kcal</span></p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400" id="lbl-ajuste">Ajuste Aplicado</p>
+          <p id="res-ajuste" class="text-2xl font-black text-emerald-400">0 <span class="text-xs font-normal text-slate-300">kcal</span></p>
+        </div>
       </div>
 
       <!-- PLAN ALIMENTICIO -->
@@ -170,7 +178,6 @@
       btn.disabled = true;
       btn.innerText = "Procesando...";
 
-      // Estructura completa JSON que se envía al servidor
       const payload = {
         email: email,
         edad: edad,
@@ -194,7 +201,32 @@
         const res = await response.json();
 
         if (res.status === 'success') {
-          document.getElementById('res-tdee').childNodes[0].nodeValue = `${res.data.calorias_diarias_meta || res.data.tdee} `;
+          // Extraer variables con respaldo para código previo
+          const meta = res.data.calorias_diarias_meta || res.data.tdee || 0;
+          const ajuste = res.data.deficit_o_superavit || 0;
+          const obj = res.data.objetivo || payload.objetivo;
+
+          // Asignar meta diaria
+          document.getElementById('res-meta').childNodes[0].nodeValue = `${meta} `;
+
+          // Configurar texto y color de la métrica de ajuste
+          const lblAjuste = document.getElementById('lbl-ajuste');
+          const resAjuste = document.getElementById('res-ajuste');
+
+          if (obj === 'bajar') {
+            lblAjuste.textContent = "Déficit (Reducción)";
+            resAjuste.childNodes[0].nodeValue = `-${ajuste} `;
+            resAjuste.className = "text-2xl font-black text-amber-400";
+          } else if (obj === 'subir') {
+            lblAjuste.textContent = "Superávit (Aumento)";
+            resAjuste.childNodes[0].nodeValue = `+${ajuste} `;
+            resAjuste.className = "text-2xl font-black text-emerald-400";
+          } else {
+            lblAjuste.textContent = "Mantenimiento";
+            resAjuste.childNodes[0].nodeValue = `0 `;
+            resAjuste.className = "text-2xl font-black text-indigo-400";
+          }
+
           document.getElementById('resultado').classList.remove('hidden');
         } else {
           alert('Error: ' + res.message);
