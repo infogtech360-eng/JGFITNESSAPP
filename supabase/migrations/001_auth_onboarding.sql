@@ -1,8 +1,22 @@
 -- ============================================================
--- JG IMPULSA — Módulo 2: Auth + Onboarding
--- Migración inicial: users, athletes, guardians, consents, photos
--- Basado en docs/02_esquema_bd.md (secciones 1,2,3,4,13)
--- RLS habilitado en todas las tablas.
+-- JG IMPULSA — Módulo 2: Auth + Onboarding (ESQUEMA EXPANDIDO FINAL)
+-- Refleja el estado real de producción tras aplicar 003_expand_schema.sql
+-- (alineación 1:1 + expansión al diseño rico que requiere el frontend).
+-- Única fuente de verdad entre repo y base (2026-09-01).
+--
+-- Estructura final real:
+--   users:     id, email, role, created_at, updated_at,
+--              nombre, apellido, telefono, rol
+--   athletes:  id, user_id, guardian_id, full_name, birth_date, sport, category,
+--              created_at, nombre, apellido, fecha_nacimiento, deporte, posicion,
+--              categoria, equipo, altura, peso, pais, ciudad, correo, telefono,
+--              pierna_mano_dominante, horario_escolar, horario_entrenamiento,
+--              objetivo, que_quiere_mejorar, habito_a_cambiar, sueno_deportivo,
+--              estado, created_by, updated_at
+--   guardians: id, user_id, full_name, phone, relationship, created_at,
+--              athlete_id, nombre, relacion, telefono, documento, created_by
+--   consents:  id, user_id, terms_accepted, media_release, accepted_at
+--   photos:    id, user_id, url, created_at
 -- ============================================================
 
 -- ============ EXTENSIONES ============
@@ -10,38 +24,28 @@ create extension if not exists "pgcrypto";
 
 -- ============ 1. USERS ============
 create table if not exists public.users (
-  id uuid primary key references auth.users(id) on delete cascade,
-  rol text not null default 'atleta'
-    check (rol in ('admin','atleta','tutor','club','profesional')),
-  nombre text,
-  apellido text,
-  email text,
-  telefono text,
-  activo boolean not null default true,
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  role text not null default 'athlete'::text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id)
+  nombre text,
+  apellido text,
+  telefono text,
+  rol text not null default 'atleta'
 );
 
 alter table public.users enable row level security;
 
--- Un usuario solo ve su propio perfil
-create policy "users_select_own" on public.users
+-- Política real: "Usuarios leen su perfil" (SELECT)
+create policy "Usuarios leen su perfil" on public.users
   for select using (auth.uid() = id);
 
--- Un usuario edita su propio perfil
-create policy "users_update_own" on public.users
+-- Política real: "Usuarios actualizan su perfil" (UPDATE)
+create policy "Usuarios actualizan su perfil" on public.users
   for update using (auth.uid() = id);
 
--- Admin gestiona todos
-create policy "users_admin_all" on public.users
-  for all using (
-    exists (
-      select 1 from public.users u
-      where u.id = auth.uid() and u.rol = 'admin'
-    )
-  );
-
+-- Trigger para mantener updated_at
 create or replace function public.handle_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -49,15 +53,22 @@ begin
   return new;
 end $$;
 
+drop trigger if exists trg_users_updated_at on public.users;
 create trigger trg_users_updated_at before update on public.users
   for each row execute function public.handle_updated_at();
 
--- ============ 2. ATHLETES ============
+-- ============ 2. ATHLETES (esquema rico) ============
 create table if not exists public.athletes (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.users(id) on delete set null,
-  nombre text not null,
-  apellido text not null,
+  user_id uuid not null,
+  guardian_id uuid,
+  full_name text not null,
+  birth_date date not null,
+  sport text not null,
+  category text not null,
+  created_at timestamptz not null default now(),
+  nombre text,
+  apellido text,
   fecha_nacimiento date,
   deporte text,
   posicion text,
@@ -76,12 +87,9 @@ create table if not exists public.athletes (
   que_quiere_mejorar text,
   habito_a_cambiar text,
   sueno_deportivo text,
-  -- Solo identificador interno de verificación; NUNCA contraseña
-  carnet_identidad text,
-  estado text not null default 'activo' check (estado in ('activo','inactivo','archivado')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id)
+  estado text not null default 'activo',
+  created_by uuid,
+  updated_at timestamptz not null default now()
 );
 
 create index if not exists idx_athletes_user_id on public.athletes(user_id);
@@ -89,48 +97,32 @@ create index if not exists idx_athletes_nombre on public.athletes(nombre, apelli
 
 alter table public.athletes enable row level security;
 
--- Atleta ve su propio registro
-create policy "athletes_select_own" on public.athletes
+-- Política real: "Atletas leen su data" (SELECT)
+create policy "Atletas leen su data" on public.athletes
   for select using (auth.uid() = user_id);
 
--- Atleta edita su propio registro
-create policy "athletes_update_own" on public.athletes
-  for update using (auth.uid() = user_id);
+-- Política real: "Atletas insertan su data" (INSERT)
+create policy "Atletas insertan su data" on public.athletes
+  for insert with check (auth.uid() = user_id);
 
--- Admin y tutor autorizado gestionan
-create policy "athletes_staff_all" on public.athletes
-  for all using (
-    exists (
-      select 1 from public.users u
-      where u.id = auth.uid() and u.rol in ('admin')
-    )
-  );
-
--- Insert habilitado para el propio usuario y para admin
-create policy "athletes_insert" on public.athletes
-  for insert with check (
-    auth.uid() = user_id or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
-
+drop trigger if exists trg_athletes_updated_at on public.athletes;
 create trigger trg_athletes_updated_at before update on public.athletes
   for each row execute function public.handle_updated_at();
 
--- ============ 3. GUARDIANS (tutores / menores) ============
+-- ============ 3. GUARDIANS (tutores) ============
 create table if not exists public.guardians (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.users(id) on delete set null,
-  athlete_id uuid not null references public.athletes(id) on delete cascade,
-  nombre text not null,
-  relacion text not null,
-  correo text,
+  user_id uuid not null,
+  full_name text not null,
+  phone text not null,
+  relationship text not null,
+  created_at timestamptz not null default now(),
+  athlete_id uuid,
+  nombre text,
+  relacion text,
   telefono text,
   documento text,
-  firma text,
-  consentimiento_activo boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id)
+  created_by uuid
 );
 
 create index if not exists idx_guardians_athlete on public.guardians(athlete_id);
@@ -138,132 +130,55 @@ create index if not exists idx_guardians_user on public.guardians(user_id);
 
 alter table public.guardians enable row level security;
 
-create policy "guardians_select_related" on public.guardians
-  for select using (
-    auth.uid() = user_id or
-    auth.uid() = created_by or
-    exists (select 1 from public.athletes a where a.id = athlete_id and a.user_id = auth.uid()) or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
+-- Política real: "Tutores leen su data" (SELECT)
+create policy "Tutores leen su data" on public.guardians
+  for select using (auth.uid() = user_id);
 
-create policy "guardians_insert" on public.guardians
-  for insert with check (
-    auth.uid() = user_id or auth.uid() = created_by or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
+-- Política real: "Tutores insertan su data" (INSERT)
+create policy "Tutores insertan su data" on public.guardians
+  for insert with check (auth.uid() = user_id);
 
-create policy "guardians_update_related" on public.guardians
-  for update using (
-    auth.uid() = user_id or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
-
-create trigger trg_guardians_updated_at before update on public.guardians
-  for each row execute function public.handle_updated_at();
-
--- ============ 4. CONSENTS (consentimientos versionados) ============
+-- ============ 4. CONSENTS ============
 create table if not exists public.consents (
   id uuid primary key default gen_random_uuid(),
-  athlete_id uuid not null references public.athletes(id) on delete cascade,
-  guardian_id uuid references public.guardians(id) on delete set null,
-  tipo text not null check (tipo in ('menor','fotos','datos','comunicacion','otros')),
-  version int not null default 1,
-  contenido text,
-  estado text not null default 'pendiente' check (estado in ('pendiente','aceptado','revocado')),
-  firmado_por text,
-  fecha_firma timestamptz,
-  documento_id uuid,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id),
-  -- versionado sin borrar histórico
-  unique (athlete_id, tipo, version)
+  user_id uuid not null,
+  terms_accepted boolean not null default false,
+  media_release boolean not null default false,
+  accepted_at timestamptz not null default now()
 );
-
-create index if not exists idx_consents_athlete on public.consents(athlete_id);
 
 alter table public.consents enable row level security;
 
-create policy "consents_select_related" on public.consents
-  for select using (
-    exists (select 1 from public.athletes a where a.id = athlete_id and a.user_id = auth.uid()) or
-    exists (select 1 from public.guardians g where g.id = guardian_id and g.user_id = auth.uid()) or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
+-- Política real: "Consentimientos propios" (ALL)
+create policy "Consentimientos propios" on public.consents
+  for all using (auth.uid() = user_id);
 
-create policy "consents_insert" on public.consents
-  for insert with check (
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
-
-create trigger trg_consents_updated_at before update on public.consents
-  for each row execute function public.handle_updated_at();
-
--- ============ 5. PHOTOS (máx. 3 por atleta) ============
+-- ============ 5. PHOTOS ============
 create table if not exists public.photos (
   id uuid primary key default gen_random_uuid(),
-  athlete_id uuid not null references public.athletes(id) on delete cascade,
-  tipo text not null check (tipo in ('cuerpo_completo','carnet','uniforme_accion')),
-  storage_path text not null,
-  mime_type text,
-  tamano_bytes bigint,
-  orden int default 0,
-  activo boolean not null default true,
-  created_at timestamptz not null default now(),
-  created_by uuid references auth.users(id)
+  user_id uuid not null,
+  url text not null,
+  created_at timestamptz not null default now()
 );
-
-create index if not exists idx_photos_athlete on public.photos(athlete_id);
 
 alter table public.photos enable row level security;
 
--- Restricción de máximo 3 fotos activas por atleta
-create or replace function public.enforce_max_photos()
-returns trigger language plpgsql as $$
-declare
-  cnt int;
-begin
-  select count(*) into cnt from public.photos
-  where athlete_id = new.athlete_id and activo = true;
-  if cnt >= 3 then
-    raise exception 'Límite de 3 fotos activas por atleta alcanzado';
-  end if;
-  return new;
-end $$;
-
-create trigger trg_photos_max before insert on public.photos
-  for each row execute function public.enforce_max_photos();
-
-create policy "photos_select_related" on public.photos
-  for select using (
-    exists (select 1 from public.athletes a where a.id = athlete_id and a.user_id = auth.uid()) or
-    exists (select 1 from public.guardians g where g.athlete_id = athlete_id and g.user_id = auth.uid()) or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
-
-create policy "photos_insert" on public.photos
-  for insert with check (
-    exists (select 1 from public.athletes a where a.id = athlete_id and a.user_id = auth.uid()) or
-    exists (select 1 from public.users u where u.id = auth.uid() and u.rol = 'admin')
-  );
+-- Política real: "Fotos propias" (ALL)
+create policy "Fotos propias" on public.photos
+  for all using (auth.uid() = user_id);
 
 -- ============ HANDLER: crear perfil en users al registrarse ============
--- Crea automáticamente el row en public.users cuando un usuario se registra en Supabase Auth
+-- Crea automáticamente el row en public.users cuando un usuario se registra en Supabase Auth.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.users (id, email, nombre, apellido, rol)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'nombre', null),
-    coalesce(new.raw_user_meta_data->>'apellido', null),
-    coalesce(new.raw_user_meta_data->>'rol', 'atleta')
-  )
+  insert into public.users (id, email, role)
+  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'role', 'athlete'))
   on conflict (id) do nothing;
   return new;
 end $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -276,6 +191,3 @@ on conflict (id) do nothing;
 insert into storage.buckets (id, name, public)
 values ('documentos', 'documentos', false)
 on conflict (id) do nothing;
-
--- Nota: las políticas de storage se configuran según el bucket y el rol.
--- Por defecto se protegen (privados). Ajustar según flujo de subida.
