@@ -1,0 +1,13 @@
+# Configuración de build y despliegue para Netlify (Next.js).
+# Netlify detecta Next.js automáticamente; este archivo ajusta build y environment.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Funciones serverless de Netlify (si se usan funciones propias además de rutas Next).
+[functions]
+  directory = "netlify/functions"
