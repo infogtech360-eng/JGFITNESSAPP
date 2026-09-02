@@ -34,7 +34,7 @@ netlify.toml          # config de despliegue Netlify
 
 ## Despliegue
 - Build: `npm run build`
-- Netlify: el repo se conecta a Netlify; `netlify.toml` define build y environment. Las variables de entorno (Supabase, service role) se definen en el panel de Netlify, nunca en el repo.
+- Netlify: el repo se conecta a Netlify; `netlify.toml` define build y environment. Las variables de entorno de Supabase (URL, anon, y la clave de rol de servicio para el servidor) se definen en el panel de Netlify, nunca en el repo.
 
 ## Docs
 Ver `docs/` para arquitectura, esquema de BD, plan del MVP (Fase 1) y decisiones pendientes.

@@ -48,7 +48,7 @@ jg-impulsa/
    > Nota: para Next.js en Netlify se usa el **Netlify Next.js runtime** (rutas y API como funciones serverless). Ajustar `publish`/`functions` según versión. Se configura en el asistente de Netlify al conectar el repo.
 3. Variables de entorno en Netlify (secretos, no en repo):
    - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY` (solo server-side)
+   - Clave de rol de servicio de Supabase (solo server-side; configurar en el panel de Netlify, nunca en el repo)
    - `SUPABASE_ANON_KEY` (público, solo con RLS protegiendo)
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - Claves de pasarela de pago (cuando se decida)
