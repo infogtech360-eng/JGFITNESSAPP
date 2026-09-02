@@ -1,4 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+
+// La capa de datos del panel de gestión (vista Admin/Coach) lista atletas de TODOS
+// los usuarios. Eso requiere los privilegios de staff que en la DB se otorgarían con
+// la policy RLS "athletes_staff_all" (public.users.role in admin/coach).
+// La ruta que consume esta función (/dashboard/admin) ya valida por RBAC server-side
+// (esRolGestion) ANTES de llamarla, así que usamos el client service-role aquí de forma
+// AISLADA para estas lecturas de gestión. El resto de capas (onboarding, panel del
+// atleta, tutores) siguen usando el client autenticado y respetan RLS.
 
 // Enriquecimiento de cada atleta con datos del tutor (guardian) y fotos (photos).
 export type AtletaRow = {
@@ -45,9 +53,10 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
   categorias: string[];
   deportes: string[];
 }> {
-  const supabase = await createClient();
+  // Client de servicio para lecturas de gestión multiusuario (equivalente a staff_all).
+  const supabase = createServiceClient();
 
-  // 1) Primero obtenemos las opciones de filtro (distintos de categoría y deporte).
+  // 1) Opciones de filtro (distintos de categoría y deporte).
   const [resCat, resDep] = await Promise.all([
     supabase.from("athletes").select("categoria").not("categoria", "is", null),
     supabase.from("athletes").select("deporte").not("deporte", "is", null),
