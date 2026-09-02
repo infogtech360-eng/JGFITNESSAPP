@@ -11,3 +11,11 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Secrets scanning: las claves de Supabase viven solo en el runtime de Netlify
+# (variables de entorno del panel), NUNCA en el repo ni en el build output.
+# Next.js/Turbopack inyecta las NEXT_PUBLIC_* dentro de los chunks del servidor
+# (.next/server) por diseño, lo que el escáner marca como falso positivo.
+# Las omitimos explícitamente para no abortar el build.
+# Docs: https://ntl.fyi/configure-secrets-scanning
+SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY"
