@@ -130,12 +130,19 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
     }
   }
 
-  const atletas: AtletaRow[] = (data ?? []).map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    nombre: r.nombre,
-    apellido: r.apellido,
-    full_name: r.full_name,
+  const atletas: AtletaRow[] = (data ?? []).map((r) => {
+    // El join embebido guardians:guardian_id devuelve OBJETO singular (no array).
+    // Manejamos ambos casos por robustez (array si alguna FK devuelve plural).
+    const g = (Array.isArray(r.guardians) ? r.guardians?.[0] : r.guardians) as
+      | { nombre?: string | null; relacion?: string | null; telefono?: string | null }
+      | null
+      | undefined;
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      nombre: r.nombre,
+      apellido: r.apellido,
+      full_name: r.full_name,
     deporte: r.deporte,
     posicion: r.posicion,
     categoria: r.categoria,
@@ -154,11 +161,12 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
     estado: r.estado,
     created_at: r.created_at,
     updated_at: r.updated_at,
-    tutor_nombre: r.guardians?.[0]?.nombre ?? null,
-    tutor_relacion: r.guardians?.[0]?.relacion ?? null,
-    tutor_telefono: r.guardians?.[0]?.telefono ?? null,
+    tutor_nombre: g?.nombre ?? null,
+    tutor_relacion: g?.relacion ?? null,
+    tutor_telefono: g?.telefono ?? null,
     fotos: r.user_id ? fotosPorUser[r.user_id as string] ?? [] : [],
-  }));
+  };
+  });
 
   return { atletas, categorias, deportes };
 }
