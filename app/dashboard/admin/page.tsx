@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAtletas } from "@/lib/data/atletas";
 import { AtletasAdminClient } from "@/components/admin/AtletasAdminClient";
+import { resolveRole, esRolGestion } from "@/lib/rbac";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -20,9 +21,21 @@ export default async function AdminDashboardPage({
     redirect("/login");
   }
 
-  // Solo admin/coach (rol del app_metadata). Otros roles ven un acceso denegado.
-  const rol = (user.app_metadata?.rol as string) ?? (user.app_metadata?.role as string) ?? null;
-  const esAdminOCoach = rol === "admin" || rol === "coach" || rol === "entrenador" || rol === "club";
+  // Rol canónico desde public.users (fuente de verdad, escalable por SQL en caliente).
+  // Si la fila aún no existe o no trae role, se cae al app_metadata del JWT.
+  let dbRole: string | null = null;
+  try {
+    const { data: perfil } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    dbRole = perfil?.role ?? null;
+  } catch {
+    dbRole = null;
+  }
+  const rol = resolveRole({ dbRole, appMetadata: user.app_metadata }) ?? null;
+  const esAdminOCoach = esRolGestion(rol);
   if (!esAdminOCoach) {
     return (
       <main className="min-h-screen bg-gray-50 px-4 py-10">
@@ -38,6 +51,9 @@ export default async function AdminDashboardPage({
           >
             Volver a mi panel
           </Link>
+          {dbRole === null && rol && (
+            <p className="mt-3 text-xs text-gray-400">Rol detectado: {rol}</p>
+          )}
         </div>
       </main>
     );

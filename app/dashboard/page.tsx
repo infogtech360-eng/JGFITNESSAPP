@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveRole } from "@/lib/rbac";
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 
@@ -23,8 +24,20 @@ export default async function DashboardPage() {
     );
   }
 
+  // Rol canónico: public.users como fuente de verdad, con fallback al app_metadata del JWT.
+  let dbRole: string | null = null;
+  try {
+    const { data: perfil } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    dbRole = perfil?.role ?? null;
+  } catch {
+    dbRole = null;
+  }
   const email = user.email ?? "";
-  const rol = (user.app_metadata?.rol as string) ?? "atleta";
+  const rol = resolveRole({ dbRole, appMetadata: user.app_metadata }) ?? "atleta";
 
   return (
     <main className="min-h-screen bg-gray-50">
