@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { absUrl } from "@/lib/site-url";
 
 export type AuthResult =
   | { ok: true; message?: string }
@@ -25,7 +26,9 @@ export async function signInWithOtp(formData: FormData): Promise<AuthResult> {
     options: {
       shouldCreateUser: true,
       data: { rol },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/onboarding`,
+      // Origin dinámico según entorno (Netlify inyecta URL/DEPLOY_URL en runtime).
+      // Evita que el magic link lleve redirect_to=http://localhost:3000 en producción.
+      emailRedirectTo: absUrl("/onboarding"),
     },
   });
 
