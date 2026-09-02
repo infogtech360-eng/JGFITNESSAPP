@@ -6,14 +6,29 @@
 // (causa de ERR_INVALID_REDIRECT en Supabase Auth).
 //
 // Precedencia (primero que exista):
-//   1. NEXT_PUBLIC_SITE_URL  -> override explícito (si se define en el panel).
-//   2. URL  /  DEPLOY_URL    -> Netlify las inyecta en build+funciones: https://<site>.netlify.app
-//   3. fallback local        -> solo para `next dev` (http://localhost:3000).
+//   1. NEXT_PUBLIC_SITE_URL        -> override explícito (si se define en el panel).
+//   2. VERCEL_PROJECT_PRODUCTION_URL / VERCEL_URL + NEXT_PUBLIC_VERCEL_URL
+//                                    -> Vercel inyecta éstas en build+runtime: https://<proyecto>.vercel.app
+//   3. URL  /  DEPLOY_URL           -> Netlify las inyecta en build+funciones: https://<site>.netlify.app
+//   4. fallback local               -> solo para `next dev` (http://localhost:3000).
 
 export function getSiteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;
   if (explicit && explicit.length > 0) {
     return stripTrailingSlash(explicit);
+  }
+
+  // Vercel: el dominio de producción canónico suele venir en VERCEL_PROJECT_PRODUCTION_URL
+  // (sin protocolo); VERCEL_URL / NEXT_PUBLIC_VERCEL_URL traen el host del deploy.
+  const vercelHost =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.NEXT_PUBLIC_VERCEL_URL ||
+    process.env.VERCEL_URL;
+  if (vercelHost && vercelHost.length > 0) {
+    const clean = vercelHost.replace(/^https?:\/\//, "").split("/")[0];
+    if (clean.length > 0) {
+      return `https://${stripTrailingSlash(clean)}`;
+    }
   }
 
   const netlifyUrl = process.env.URL || process.env.DEPLOY_URL;
