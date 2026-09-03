@@ -11,7 +11,7 @@ export default function LoginPage() {
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <h1 className="text-center text-2xl font-black text-gray-900">Iniciar sesión</h1>
           <p className="mt-2 text-center text-sm text-gray-500">
-            Accede con tu correo. Te enviaremos un enlace o código seguro.
+            Accede con tu correo y contraseña.
           </p>
           <div className="mt-6">
             <LoginForm />
