@@ -34,7 +34,8 @@ export default function LoginForm() {
     setStatus(res);
     setLoading(false);
     if (res.ok) {
-      window.location.href = "/onboarding";
+      // Destino por rol (admin → /dashboard/admin; resto del servidor devuelve redirectTo).
+      window.location.href = res.redirectTo ?? "/onboarding";
     }
   };
 

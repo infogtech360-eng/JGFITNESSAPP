@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { absUrl } from "@/lib/site-url";
+import { resolveRole } from "@/lib/rbac";
 
 export type AuthResult =
-  | { ok: true; message?: string }
+  | { ok: true; message?: string; redirectTo?: string }
   | { ok: false; error: string };
 
 // --- Login con Magic Link / OTP (correo) ---
@@ -53,7 +54,37 @@ export async function verifyOtp(formData: FormData): Promise<AuthResult> {
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
 
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+
+  // Una vez verificada la sesión, determinamos el destino por rol canónico
+  // (public.users.role como fuente de verdad, con fallback al JWT). Así un
+  // admin/gestor NO cae en el onboarding de atleta: va directo a /dashboard/admin.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: true, redirectTo: "/onboarding" };
+
+  let dbRole: string | null = null;
+  try {
+    const { data: perfil } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    dbRole = perfil?.role ?? null;
+  } catch {
+    dbRole = null;
+  }
+  const rol = resolveRole({ dbRole, appMetadata: user.app_metadata });
+
+  let redirectTo = "/onboarding";
+  if (rol && ["admin", "coach", "entrenador", "club"].includes(rol)) {
+    redirectTo = "/dashboard/admin";
+  } else if (rol && rol !== "atleta" && rol !== "tutor") {
+    // Roles gestionados sin onboarding de atleta/tutor pendiente.
+    redirectTo = "/dashboard";
+  }
+
+  return { ok: true, redirectTo };
 }
 
 // --- Cierre de sesión ---

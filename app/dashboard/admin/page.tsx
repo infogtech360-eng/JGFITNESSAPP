@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAtletas } from "@/lib/data/atletas";
+import { getLeads } from "@/lib/data/leads";
 import { AtletasAdminClient } from "@/components/admin/AtletasAdminClient";
+import { BandejaLeadsClient } from "@/components/admin/BandejaLeadsClient";
 import { resolveRole, esRolGestion } from "@/lib/rbac";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -60,18 +62,35 @@ export default async function AdminDashboardPage({
   }
 
   const sp = await searchParams;
-  const { atletas, categorias, deportes } = await getAtletas({
-    categoria: sp.categoria,
-    deporte: sp.deporte,
-    q: sp.q,
-  });
+  // vista principal: "atletas" (tabla/fichas) o "leads" (bandeja de prospectos)
+  const seccion = sp.vista === "leads" ? "leads" : "atletas";
+
+  // Cargar solo la sección activa para no consultar de más.
+  const atletasRes =
+    seccion === "atletas"
+      ? await getAtletas({ categoria: sp.categoria, deporte: sp.deporte, q: sp.q })
+      : null;
+  const leads = seccion === "leads" ? await getLeads() : [];
+  const { atletas = [], categorias = [], deportes = [] } = atletasRes ?? {};
 
   // Filtros activos para mostrar en el cliente
   const vParams = {
     categoria: sp.categoria ?? "",
     deporte: sp.deporte ?? "",
     q: sp.q ?? "",
-    vista: sp.vista ?? "tabla",
+    vista: seccion === "leads" ? "leads" : (sp.vista ?? "tabla"),
+  };
+
+  const linkSeccion = (dest: string) => {
+    const params = new URLSearchParams();
+    if (seccion === "atletas") {
+      // conservar filtros/ficha al ir a la otra vista
+      if (sp.categoria) params.set("categoria", sp.categoria);
+      if (sp.deporte) params.set("deporte", sp.deporte);
+      if (sp.q) params.set("q", sp.q);
+    }
+    params.set("vista", dest);
+    return `/dashboard/admin?${params.toString()}`;
   };
 
   return (
@@ -93,23 +112,62 @@ export default async function AdminDashboardPage({
             </span>
           </div>
         </div>
+        {/* NavegaciA3n de secciones del panel */}
+        <div className="mx-auto max-w-7xl px-4 pb-0">
+          <nav className="flex gap-1">
+            <Link
+              href={linkSeccion("atletas")}
+              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
+                seccion === "atletas"
+                  ? "border-b-2 border-blue-600 text-blue-700"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              Atletas
+            </Link>
+            <Link
+              href={linkSeccion("leads")}
+              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
+                seccion === "leads"
+                  ? "border-b-2 border-blue-600 text-blue-700"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              Prospectos{leads.length > 0 ? ` (${leads.length})` : ""}
+            </Link>
+          </nav>
+        </div>
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900">Atletas</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestiona y filtra los perfiles deportivos creados en JG IMPULSA.
-          </p>
-        </div>
-
-        <AtletasAdminClient
-          atletas={atletas}
-          categorias={categorias}
-          deportes={deportes}
-          filtrosIniciales={vParams}
-          total={atletas.length}
-        />
+        {seccion === "atletas" ? (
+          <>
+            <div className="mb-6">
+              <h1 className="text-2xl font-black text-gray-900">Atletas</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Gestiona y filtra los perfiles deportivos creados en JG IMPULSA.
+              </p>
+            </div>
+            <AtletasAdminClient
+              atletas={atletas}
+              categorias={categorias}
+              deportes={deportes}
+              filtrosIniciales={vParams}
+              total={atletas.length}
+            />
+          </>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h1 className="text-2xl font-black text-gray-900">Prospectos</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Solicitudes recibidas desde la landing. Revisa y da seguimiento a cada
+                interesado.
+              </p>
+            </div>
+            <BandejaLeadsClient leads={leads} total={leads.length} />
+          </>
+        )}
       </div>
     </main>
   );
