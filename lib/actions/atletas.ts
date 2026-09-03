@@ -1,32 +1,45 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 export async function registrarEvaluacion(formData: FormData) {
-  const atletaId = formData.get('atletaId') as string
-  const mental = Number(formData.get('mental'))
-  const emocional = Number(formData.get('emocional'))
-  const tactico = Number(formData.get('tactico'))
+  const supabase = await createClient()
 
+  const atletaId = formData.get('atletaId') as string
+  const mental = parseInt(formData.get('mental') as string, 10)
+  const emocional = parseInt(formData.get('emocional') as string, 10)
+  const tactico = parseInt(formData.get('tactico') as string, 10)
+  const notas = (formData.get('notas') as string) || ''
+
+  const { error } = await supabase
+    .from('evaluaciones_pilares')
+    .insert({
+      atleta_id: atletaId,
+      mental,
+      emocional,
+      tactico,
+      notas,
+    })
+
+  if (error) {
+    console.error('Error al registrar evaluación:', error.message)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/dashboard/admin')
+  return { success: true }
+}
+
+export async function eliminarLead(leadId: string) {
   const supabase = await createClient()
 
   const { error } = await supabase
-    .from('evaluaciones')
-    .insert([
-      {
-        atleta_id: atletaId,
-        pilar_mental: mental,
-        pilar_emocional: emocional,
-        pilar_tactico: tactico,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    .from('leads')
+    .delete()
+    .eq('id', leadId)
 
-  if (error) {
-    console.error('Error al registrar la evaluación:', error)
-    return { success: false, error: error.message }
-  }
+  if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/admin')
   return { success: true }
