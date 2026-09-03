@@ -1,5 +1,4 @@
-import Image from "next/image";
-import Link from "next/link";
+import ContactForm from "@/components/ContactForm";
 
 export default function Home() {
   return (
@@ -272,43 +271,7 @@ export default function Home() {
           <p className="mt-4 text-center text-gray-600">
             Déjanos tus datos y te contactamos para armar el plan adecuado.
           </p>
-          <form className="mt-10 space-y-4 rounded-2xl border border-gray-200 bg-white p-8">
-            <input
-              type="text"
-              placeholder="Nombre completo"
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-600"
-            />
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-600"
-            />
-            <input
-              type="tel"
-              placeholder="Teléfono / WhatsApp"
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-600"
-            />
-            <select
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-600"
-              defaultValue=""
-            >
-              <option value="" disabled>¿Qué te interesa?</option>
-              <option>Impulsar a mi atleta</option>
-              <option>Soy club / equipo</option>
-              <option>Otro</option>
-            </select>
-            <textarea
-              rows={4}
-              placeholder="Cuéntanos un poco más..."
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-600"
-            />
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-            >
-              Enviar
-            </button>
-          </form>
+          <ContactForm />
         </div>
       </section>
 
