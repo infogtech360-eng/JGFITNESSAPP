@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "JG IMPULSA — El atleta es el centro",
   description:
     "Acompañamiento integral para atletas: mental, emocional y táctico. Formamos atletas preparados para competir y crecer sin perder sus valores y su fe.",
+  manifest: "/manifest.json",
+  themeColor: "#2563eb",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "JG Impulsa",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
