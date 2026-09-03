@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ModalEvaluacion from './ModalEvaluacion'
+import { createClient } from '@/lib/supabase/client'
 
 export interface AtletaRow {
   id: string
@@ -19,7 +20,7 @@ export interface AtletaRow {
 interface AtletasAdminClientProps {
   atletas: AtletaRow[]
   categorias?: string[]
-  deportes?: string[]
+  de deportes?: string[]
   filtrosIniciales?: {
     categoria?: string
     deporte?: string
@@ -35,11 +36,31 @@ export function AtletasAdminClient({
 }: AtletasAdminClientProps) {
   const [busqueda, setBusqueda] = useState(filtrosIniciales?.q || '')
   const [atletaAEvaluar, setAtletaAEvaluar] = useState<{ id: string; nombre: string } | null>(null)
+  const [listaAtletas, setListaAtletas] = useState<AtletaRow[]>(atletas || [])
+  const supabase = createClient()
 
-  const atletasFiltrados = (atletas || []).filter((atleta) => {
+  const atletasFiltrados = listaAtletas.filter((atleta) => {
     const nombreCompleto = `${atleta.nombre || ''} ${atleta.apellido || ''}`.toLowerCase()
     return nombreCompleto.includes(busqueda.toLowerCase())
   })
+
+  // Función para manejar el cambio de estado en Supabase
+  const handleCambiarEstado = async (id: string, nuevoEstado: string) => {
+    // Actualización optimista local para que responda de inmediato
+    setListaAtletas((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, estado: nuevoEstado } : a))
+    )
+
+    const { error } = await supabase
+      .from('leads')
+      .update({ estado: nuevoEstado })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error al actualizar estado:', error.message)
+      alert('Hubo un error al actualizar el estado en la base de datos.')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -75,9 +96,15 @@ export function AtletasAdminClient({
                 <td className="px-6 py-4 text-gray-600">{atleta.categoria || 'N/A'}</td>
                 <td className="px-6 py-4 text-gray-600">{atleta.posicion || 'N/A'}</td>
                 <td className="px-6 py-4">
-                  <span className="px-2.5 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                    {atleta.estado || 'Activo'}
-                  </span>
+                  <select
+                    value={atleta.estado || 'Nuevo'}
+                    onChange={(e) => handleCambiarEstado(atleta.id, e.target.value)}
+                    className="text-xs font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="Nuevo">Nuevo</option>
+                    <option value="En Proceso">En Proceso</option>
+                    <option value="Convertido">Convertido</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 text-right flex justify-end gap-3 font-medium">
                   <button
