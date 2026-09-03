@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { resolveRole } from "@/lib/rbac";
+import { resolveRole, esRolGestion } from "@/lib/rbac";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +37,15 @@ export default async function DashboardPage() {
   } catch {
     dbRole = null;
   }
-  const email = user.email ?? "";
   const rol = resolveRole({ dbRole, appMetadata: user.app_metadata }) ?? "atleta";
+
+  // Verificación server-side: los roles de gestión (admin/coach/entrenador/club) NO ven
+  // la vista de atleta. Van directos a su panel de gestión /dashboard/admin.
+  if (esRolGestion(rol)) {
+    redirect("/dashboard/admin");
+  }
+
+  const email = user.email ?? "";
 
   return (
     <main className="min-h-screen bg-gray-50">

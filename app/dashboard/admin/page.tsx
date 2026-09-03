@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAtletas } from "@/lib/data/atletas";
 import { getLeads } from "@/lib/data/leads";
+import { getKpis } from "@/lib/data/dashboard";
 import { AtletasAdminClient } from "@/components/admin/AtletasAdminClient";
 import { BandejaLeadsClient } from "@/components/admin/BandejaLeadsClient";
+import { NavAdmin } from "@/components/admin/NavAdmin";
+import { KpiCards } from "@/components/admin/KpiCards";
 import { resolveRole, esRolGestion } from "@/lib/rbac";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string; deporte?: string; q?: string; vista?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const supabase = await createClient();
   const {
@@ -23,8 +26,6 @@ export default async function AdminDashboardPage({
     redirect("/login");
   }
 
-  // Rol canónico desde public.users (fuente de verdad, escalable por SQL en caliente).
-  // Si la fila aún no existe o no trae role, se cae al app_metadata del JWT.
   let dbRole: string | null = null;
   try {
     const { data: perfil } = await supabase
@@ -37,11 +38,10 @@ export default async function AdminDashboardPage({
     dbRole = null;
   }
   const rol = resolveRole({ dbRole, appMetadata: user.app_metadata }) ?? null;
-  const esAdminOCoach = esRolGestion(rol);
-  if (!esAdminOCoach) {
+  if (!esRolGestion(rol)) {
     return (
-      <main className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
           <p className="text-4xl">🔒</p>
           <h1 className="mt-3 text-xl font-black text-gray-900">Acceso restringido</h1>
           <p className="mt-2 text-sm text-gray-500">
@@ -53,122 +53,149 @@ export default async function AdminDashboardPage({
           >
             Volver a mi panel
           </Link>
-          {dbRole === null && rol && (
-            <p className="mt-3 text-xs text-gray-400">Rol detectado: {rol}</p>
-          )}
+          {dbRole === null && rol && <p className="mt-3 text-xs text-gray-400">Rol: {rol}</p>}
         </div>
       </main>
     );
   }
 
-  const sp = await searchParams;
-  // vista principal: "atletas" (tabla/fichas) o "leads" (bandeja de prospectos)
-  const seccion = sp.vista === "leads" ? "leads" : "atletas";
+  const raw = await searchParams;
+  const one = (k: string) =>
+    typeof raw[k] === "string" ? (raw[k] as string) : Array.isArray(raw[k]) ? (raw[k]![0] as string) : undefined;
 
-  // Cargar solo la sección activa para no consultar de más.
-  const atletasRes =
-    seccion === "atletas"
-      ? await getAtletas({ categoria: sp.categoria, deporte: sp.deporte, q: sp.q })
-      : null;
-  const leads = seccion === "leads" ? await getLeads() : [];
+  const vSeccion = one("vista");
+  const seccion: "overview" | "leads" | "atletas" =
+    vSeccion === "leads" || vSeccion === "atletas" ? vSeccion : "overview";
+
+  // Cargar KPI siempre (overview y pestañas lo muestran arriba del detalle).
+  const kpis = await getKpis();
+
+  let leads: Awaited<ReturnType<typeof getLeads>> = [];
+  let atletasRes: Awaited<ReturnType<typeof getAtletas>> | null = null;
+
+  if (seccion === "leads") {
+    leads = await getLeads();
+  } else if (seccion === "atletas") {
+    atletasRes = await getAtletas({
+      categoria: one("categoria"),
+      deporte: one("deporte"),
+      q: one("q"),
+    });
+  }
+
   const { atletas = [], categorias = [], deportes = [] } = atletasRes ?? {};
-
-  // Filtros activos para mostrar en el cliente
-  const vParams = {
-    categoria: sp.categoria ?? "",
-    deporte: sp.deporte ?? "",
-    q: sp.q ?? "",
-    vista: seccion === "leads" ? "leads" : (sp.vista ?? "tabla"),
-  };
-
   const linkSeccion = (dest: string) => {
     const params = new URLSearchParams();
     if (seccion === "atletas") {
-      // conservar filtros/ficha al ir a la otra vista
-      if (sp.categoria) params.set("categoria", sp.categoria);
-      if (sp.deporte) params.set("deporte", sp.deporte);
-      if (sp.q) params.set("q", sp.q);
+      const c = one("categoria");
+      const d = one("deporte");
+      const q = one("q");
+      if (c) params.set("categoria", c);
+      if (d) params.set("deporte", d);
+      if (q) params.set("q", q);
     }
     params.set("vista", dest);
     return `/dashboard/admin?${params.toString()}`;
   };
 
-  return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-xl font-black tracking-tight">
-            JG <span className="text-blue-600">IMPULSA</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm font-semibold text-gray-600 hover:text-gray-900"
-            >
-              Mi panel
-            </Link>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
-              {rol}
-            </span>
-          </div>
-        </div>
-        {/* NavegaciA3n de secciones del panel */}
-        <div className="mx-auto max-w-7xl px-4 pb-0">
-          <nav className="flex gap-1">
-            <Link
-              href={linkSeccion("atletas")}
-              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
-                seccion === "atletas"
-                  ? "border-b-2 border-blue-600 text-blue-700"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              Atletas
-            </Link>
-            <Link
-              href={linkSeccion("leads")}
-              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
-                seccion === "leads"
-                  ? "border-b-2 border-blue-600 text-blue-700"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              Prospectos{leads.length > 0 ? ` (${leads.length})` : ""}
-            </Link>
-          </nav>
-        </div>
-      </header>
+  const propTitle =
+    seccion === "leads"
+      ? { t: "Prospectos", s: "Solicitudes recibidas desde la landing. Filtrá por estado, gestioná el avance y contactá por WhatsApp.", n: leads.length }
+      : seccion === "atletas"
+        ? { t: "Atletas", s: "Directorio de perfiles deportivos con sus pilares Mental · Emocional · Táctico.", n: atletas.length }
+        : { t: "Visión general", s: "Resumen ejecutivo de JG IMPULSA: prospectos, planes y atletas activos.", n: null };
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        {seccion === "atletas" ? (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-black text-gray-900">Atletas</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Gestiona y filtra los perfiles deportivos creados en JG IMPULSA.
-              </p>
-            </div>
-            <AtletasAdminClient
-              atletas={atletas}
-              categorias={categorias}
-              deportes={deportes}
-              filtrosIniciales={vParams}
-              total={atletas.length}
-            />
-          </>
-        ) : (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-black text-gray-900">Prospectos</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Solicitudes recibidas desde la landing. Revisa y da seguimiento a cada
-                interesado.
-              </p>
-            </div>
-            <BandejaLeadsClient leads={leads} total={leads.length} />
-          </>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavAdmin rol={rol ?? "admin"} activa={seccion} />
+
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        {/* KPIs siempre visibles */}
+        <KpiCards kpis={kpis} />
+
+        {/* Encabezado + enlace directo desde overview */}
+        <div className="mb-6 mt-8 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">{propTitle.t}</h1>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">{propTitle.s}</p>
+          </div>
+          {propTitle.n !== null && (
+            <p className="text-sm font-medium text-gray-400">
+              {propTitle.n} {propTitle.n === 1 ? "elemento" : "elementos"}
+            </p>
+          )}
+        </div>
+
+        {/* Contenido por sección */}
+        {seccion === "overview" && (
+          <OverviewGrid linkSeccion={linkSeccion} totalLeads={kpis.totalLeads} totalAtletas={kpis.atletasActivos} />
         )}
-      </div>
-    </main>
+        {seccion === "leads" && <BandejaLeadsClient leads={leads} total={leads.length} />}
+        {seccion === "atletas" && (
+          <AtletasAdminClient
+            atletas={atletas}
+            categorias={categorias}
+            deportes={deportes}
+            filtrosIniciales={{
+              categoria: one("categoria") ?? "",
+              deporte: one("deporte") ?? "",
+              q: one("q") ?? "",
+              vista: one("vista") === "atletas" ? "tabla" : "tabla",
+            }}
+            total={atletas.length}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+// Cuadrícula de acceso rápido en la vista de visión general.
+function OverviewGrid({
+  linkSeccion,
+  totalLeads,
+  totalAtletas,
+}: {
+  linkSeccion: (dest: string) => string;
+  totalLeads: number;
+  totalAtletas: number;
+}) {
+  const items = [
+    {
+      icon: "🎯",
+      title: "Prospectos",
+      desc: `Gestioná ${totalLeads} solicitudes: plan, estado y contacto por WhatsApp.`,
+      cta: "Abrir bandeja",
+      link: linkSeccion("leads"),
+    },
+    {
+      icon: "🏅",
+      title: "Atletas",
+      desc: `${totalAtletas} atletas activos con su acompañamiento en pilares.`,
+      cta: "Ver directorio",
+      link: linkSeccion("atletas"),
+    },
+  ];
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {items.map((i) => (
+        <Link
+          key={i.title}
+          href={i.link}
+          className="group rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{i.icon}</span>
+            <div>
+              <h2 className="text-lg font-black text-gray-900">{i.title}</h2>
+              <p className="text-sm text-gray-500">{i.desc}</p>
+            </div>
+          </div>
+          <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 group-hover:underline">
+            {i.cta} →
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
