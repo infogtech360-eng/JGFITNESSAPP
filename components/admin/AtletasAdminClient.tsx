@@ -20,7 +20,7 @@ export interface AtletaRow {
 interface AtletasAdminClientProps {
   atletas: AtletaRow[]
   categorias?: string[]
-  de deportes?: string[]
+  deportes?: string[]
   filtrosIniciales?: {
     categoria?: string
     deporte?: string
@@ -44,9 +44,7 @@ export function AtletasAdminClient({
     return nombreCompleto.includes(busqueda.toLowerCase())
   })
 
-  // Función para manejar el cambio de estado en Supabase
   const handleCambiarEstado = async (id: string, nuevoEstado: string) => {
-    // Actualización optimista local para que responda de inmediato
     setListaAtletas((prev) =>
       prev.map((a) => (a.id === id ? { ...a, estado: nuevoEstado } : a))
     )
