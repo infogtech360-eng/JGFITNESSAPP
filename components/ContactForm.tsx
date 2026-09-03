@@ -10,9 +10,14 @@ export default function ContactForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // IMPORTANTE: capturar el <form> ANTES de cualquier await. En React, `e.currentTarget`
+    // se pone a null en cuanto el handler async cede el control (después del primer await);
+    // usarlo al final (e.currentTarget.reset()) disparaba un TypeError que caía al catch y
+    // mostraba "No se pudo enviar..." aunque el POST ya hubiera funcionado (200 en servidor).
+    const form = e.currentTarget;
     setLoading(true);
     setStatus(null);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
     const payload = {
       nombre: String(fd.get("nombre") ?? ""),
       email: String(fd.get("email") ?? ""),
@@ -28,7 +33,7 @@ export default function ContactForm() {
       });
       const data = await res.json();
       setStatus({ ok: data.ok, message: data.message || data.error || "Error." });
-      if (data.ok) e.currentTarget.reset();
+      if (data.ok) form.reset();
     } catch {
       setStatus({ ok: false, message: "No se pudo enviar. Revisa tu conexión e intenta de nuevo." });
     } finally {
