@@ -93,6 +93,13 @@ export function BandejaLeadsClient({ leads, total }: Props) {
                       {l.email && <span>✉️ {l.email}</span>}
                       {l.telefono && <span>📞 {l.telefono}</span>}
                     </p>
+                    {/* Plan elegido — destacado para gestión/respuesta */}
+                    {l.plan && (
+                      <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1">
+                        <span className="text-xs uppercase tracking-wide text-blue-400">Plan</span>
+                        <span className="text-sm font-bold text-blue-700">{l.plan}</span>
+                      </div>
+                    )}
                     {l.interes && (
                       <p className="mt-1 text-xs font-medium uppercase tracking-wide text-blue-500">
                         {l.interes}

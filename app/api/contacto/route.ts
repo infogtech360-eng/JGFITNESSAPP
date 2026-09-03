@@ -16,6 +16,8 @@ export async function POST(request: Request) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const telefono = String(body.telefono ?? "").trim();
   const interes = String(body.interes ?? "").trim();
+  // Plan de interés elegido en el formulario (ej. "Mensual $40/mes", "Anual $360/año", etc.)
+  const plan = String(body.plan ?? "").trim();
   const mensaje = String(body.mensaje ?? "").trim();
 
   if (!email) {
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
     email,
     telefono: telefono || null,
     interes: interes || null,
+    plan: plan || null,
     mensaje: mensaje || null,
   });
 

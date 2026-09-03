@@ -12,20 +12,35 @@ export type LeadRow = {
   email: string | null;
   telefono: string | null;
   interes: string | null;
+  plan: string | null;
   mensaje: string | null;
   estado: string | null;
 };
 
 // Lista los leads recibidos, más recientes primero.
+// Tolerante a la migración 006_lead_plan.sql: si la columna 'plan' aún no existe en la DB
+// (porque el SQL no se ha ejecutado), reintenta sin ella y deja el campo a null. Así la
+// bandeja jamás rompe por un esquema en transición.
 export async function getLeads(): Promise<LeadRow[]> {
   const supabase = createServiceClient();
+  const COLS = "id, created_at, nombre, email, telefono, interes, plan, mensaje, estado";
   const { data, error } = await supabase
     .from("leads")
-    .select("id, created_at, nombre, email, telefono, interes, mensaje, estado")
+    .select(COLS)
     .order("created_at", { ascending: false })
     .limit(200);
 
   if (error) {
+    // La columna 'plan' puede no existir todavía si falta la migración 006. Reintenta sin ella.
+    const sinPlan = COLS.replace(", plan", "");
+    const retry = await supabase
+      .from("leads")
+      .select(sinPlan)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (!retry.error) {
+      return (retry.data ?? []).map((r) => ({ ...(r as object), plan: null }) as LeadRow);
+    }
     console.error("getLeads error:", error);
     return [];
   }
