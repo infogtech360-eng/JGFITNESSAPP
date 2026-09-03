@@ -3,24 +3,41 @@
 import { useState } from 'react'
 import ModalEvaluacion from './ModalEvaluacion'
 
-interface Atleta {
+export interface AtletaRow {
   id: string
-  nombre: string
-  apellido: string
-  deporte?: string
-  categoria?: string
-  posicion?: string
-  equipo?: string
-  tutor_nombre?: string
-  estado?: string
+  nombre?: string | null
+  apellido?: string | null
+  deporte?: string | null
+  categoria?: string | null
+  posicion?: string | null
+  equipo?: string | null
+  tutor_nombre?: string | null
+  estado?: string | null
+  [key: string]: any
 }
 
-export default function AtletasAdminClient({ atletas }: { atletas: Atleta[] }) {
-  const [busqueda, setBusqueda] = useState('')
+interface AtletasAdminClientProps {
+  atletas: AtletaRow[]
+  categorias?: string[]
+  deportes?: string[]
+  filtrosIniciales?: {
+    categoria?: string
+    deporte?: string
+    q?: string
+    vista?: string
+  }
+  total?: number
+}
+
+export function AtletasAdminClient({
+  atletas,
+  filtrosIniciales,
+}: AtletasAdminClientProps) {
+  const [busqueda, setBusqueda] = useState(filtrosIniciales?.q || '')
   const [atletaAEvaluar, setAtletaAEvaluar] = useState<{ id: string; nombre: string } | null>(null)
 
-  const atletasFiltrados = atletas.filter((atleta) => {
-    const nombreCompleto = `${atleta.nombre} ${atleta.apellido}`.toLowerCase()
+  const atletasFiltrados = (atletas || []).filter((atleta) => {
+    const nombreCompleto = `${atleta.nombre || ''} ${atleta.apellido || ''}`.toLowerCase()
     return nombreCompleto.includes(busqueda.toLowerCase())
   })
 
@@ -52,7 +69,7 @@ export default function AtletasAdminClient({ atletas }: { atletas: Atleta[] }) {
             {atletasFiltrados.map((atleta) => (
               <tr key={atleta.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 font-semibold text-gray-900">
-                  {atleta.nombre} {atleta.apellido}
+                  {atleta.nombre || ''} {atleta.apellido || ''}
                 </td>
                 <td className="px-6 py-4 text-gray-600">{atleta.deporte || 'N/A'}</td>
                 <td className="px-6 py-4 text-gray-600">{atleta.categoria || 'N/A'}</td>
@@ -64,7 +81,12 @@ export default function AtletasAdminClient({ atletas }: { atletas: Atleta[] }) {
                 </td>
                 <td className="px-6 py-4 text-right flex justify-end gap-3 font-medium">
                   <button
-                    onClick={() => setAtletaAEvaluar({ id: atleta.id, nombre: `${atleta.nombre} ${atleta.apellido}` })}
+                    onClick={() =>
+                      setAtletaAEvaluar({
+                        id: atleta.id,
+                        nombre: `${atleta.nombre || ''} ${atleta.apellido || ''}`.trim(),
+                      })
+                    }
                     className="text-purple-600 hover:text-purple-900 font-semibold"
                   >
                     Evaluar
@@ -86,3 +108,5 @@ export default function AtletasAdminClient({ atletas }: { atletas: Atleta[] }) {
     </div>
   )
 }
+
+export default AtletasAdminClient
