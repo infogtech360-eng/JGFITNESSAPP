@@ -27,9 +27,11 @@ export async function signInWithOtp(formData: FormData): Promise<AuthResult> {
     options: {
       shouldCreateUser: true,
       data: { rol },
-      // Origin dinámico según entorno (Netlify inyecta URL/DEPLOY_URL en runtime).
-      // Evita que el magic link lleve redirect_to=http://localhost:3000 en producción.
-      emailRedirectTo: absUrl("/onboarding"),
+      // Origin dinámico según entorno (Vercel/Netlify inyectan URL en runtime).
+      // Destino = /auth/callback: allí se intercambia el PKCE code con exchangeCodeForSession
+      // y se redirige por rol canónico (admin/gestor -> /dashboard/admin), en lugar de caer
+      // siempre en el onboarding de atleta.
+      emailRedirectTo: absUrl("/auth/callback"),
     },
   });
 
