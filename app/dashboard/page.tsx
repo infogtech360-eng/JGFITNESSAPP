@@ -26,7 +26,7 @@ export default function AtletaDashboard() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
- useEffect(() => {
+  useEffect(() => {
     const verificarUsuario = async () => {
       // 1. Obtener el usuario autenticado
       const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -45,7 +45,6 @@ export default function AtletaDashboard() {
 
       // 3. Redirigir si es nuevo (no existe en athletes), o cargar sus datos si ya existe
       if (dbError || !perfilAtleta) {
-        // Redirige al formulario para que llene sus datos por primera vez
         router.push('/onboarding') 
       } else {
         setAtleta(perfilAtleta)
@@ -82,7 +81,7 @@ export default function AtletaDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Encabezado Dinámico con datos de Supabase */}
+      {/* Encabezado Dinámico con datos de Supabase y formato robusto de estatura/IMC */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -95,18 +94,25 @@ export default function AtletaDashboard() {
         <div className="grid grid-cols-3 gap-4 w-full md:w-auto">
           <div className="bg-blue-50 p-3 rounded-xl text-center">
             <span className="text-xs text-blue-600 font-semibold uppercase">Estatura</span>
-            <p className="text-lg font-bold text-blue-900">{atleta.estatura || '0.00'} m</p>
+            <p className="text-lg font-bold text-blue-950">
+              {atleta.estatura 
+                ? (atleta.estatura > 3 ? `${atleta.estatura} cm` : `${atleta.estatura} m`) 
+                : '0.00'}
+            </p>
           </div>
           <div className="bg-green-50 p-3 rounded-xl text-center">
             <span className="text-xs text-green-600 font-semibold uppercase">Peso</span>
-            <p className="text-lg font-bold text-green-900">{atleta.peso || '0'} kg</p>
+            <p className="text-lg font-bold text-green-950">{atleta.peso || '0'} kg</p>
           </div>
           <div className="bg-purple-50 p-3 rounded-xl text-center">
             <span className="text-xs text-purple-600 font-semibold uppercase">IMC</span>
-            <p className="text-lg font-bold text-purple-900">
-              {atleta.peso && atleta.estatura 
-                ? (atleta.peso / (atleta.estatura * atleta.estatura)).toFixed(1) 
-                : '0.0'}
+            <p className="text-lg font-bold text-purple-950">
+              {(() => {
+                if (!atleta.peso || !atleta.estatura) return '0.0';
+                const alturaMetros = atleta.estatura > 3 ? atleta.estatura / 100 : atleta.estatura;
+                const imc = atleta.peso / (alturaMetros * alturaMetros);
+                return imc.toFixed(1);
+              })()}
             </p>
           </div>
         </div>
