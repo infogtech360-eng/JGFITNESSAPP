@@ -69,9 +69,6 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
   ].sort((a, b) => a.localeCompare(b, "es"));
 
   // 2) Búsqueda por texto (nombre atleta o tutor):
-  //    PostgREST NO permite filtrar relaciones embebidas dentro de .or(), así que
-  //    resolvemos el tutor en dos pasos: (a) buscar guardianes que matcheen y tomar
-  //    sus user_id; (b) filtrar athletes por nombre propio O por esos user_id.
   let tutorUserIds: string[] = [];
   const q = filtros.q?.trim() ?? "";
   if (q !== "") {
@@ -84,16 +81,11 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
     ];
   }
 
-  // 3) Consulta principal de atletas con filtros + left join al tutor (FK guardian_id).
-let query = supabase
-  .from("athletes")
-  .select(
-    `id, user_id, nombre, apellido, full_name, deporte, posicion, categoria, equipo,
-     altura, peso, pais, ciudad, correo, telefono, pierna_mano_dominante, objetivo,
-     que_quiere_mejorar, habito_a_cambiar, sueno_deportivo, estado, created_at, updated_at,
-     guardians:guardian_id!left(id, nombre, relacion, telefono)`
-  )
-  .order("created_at", { ascending: false });
+  // 3) Consulta principal de atletas (sin joins complejos que fallen si guardian_id es null).
+  let query = supabase
+    .from("athletes")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (filtros.categoria && filtros.categoria !== "todas") {
     query = query.eq("categoria", filtros.categoria);
@@ -102,7 +94,6 @@ let query = supabase
     query = query.eq("deporte", filtros.deporte);
   }
   if (q !== "") {
-    // Filtro compuesto: coincide con el nombre del atleta O con un tutor hallado.
     if (tutorUserIds.length > 0) {
       query = query.or(
         `nombre.ilike.%${q}%,apellido.ilike.%${q}%,full_name.ilike.%${q}%,user_id.in.(${tutorUserIds.join(",")})`
@@ -119,11 +110,28 @@ let query = supabase
     return { atletas: [], categorias, deportes };
   }
 
-  // 4) Fotos: photos no tiene FK a athletes (solo comparten el valor user_id),
-  //    así que PostgREST no puede embederlas. Las traemos en una consulta separada
-  //    agrupadas por user_id y las adjuntamos en memoria.
+  const atletasRaw = data ?? [];
+
+  // 4) Obtener tutores en consulta separada usando los guardian_id existentes
+  const guardianIds = [
+    ...new Set(atletasRaw.map((r) => r.guardian_id as string).filter(Boolean)),
+  ];
+  const tutoresPorId: Record<string, { nombre?: string | null; relacion?: string | null; telefono?: string | null }> = {};
+  if (guardianIds.length > 0) {
+    const { data: guardiansData, error: guardiansErr } = await supabase
+      .from("guardians")
+      .select("id, nombre, relacion, telefono")
+      .in("id", guardianIds);
+    if (!guardiansErr && guardiansData) {
+      for (const g of guardiansData) {
+        tutoresPorId[g.id] = g;
+      }
+    }
+  }
+
+  // 5) Fotos agrupadas por user_id
   const userIds = [
-    ...new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean)),
+    ...new Set(atletasRaw.map((r) => r.user_id as string).filter(Boolean)),
   ];
   const fotosPorUser: Record<string, string[]> = {};
   if (userIds.length > 0) {
@@ -139,42 +147,38 @@ let query = supabase
     }
   }
 
-  const atletas: AtletaRow[] = (data ?? []).map((r) => {
-    // El join embebido guardians:guardian_id devuelve OBJETO singular (no array).
-    // Manejamos ambos casos por robustez (array si alguna FK devuelve plural).
-    const g = (Array.isArray(r.guardians) ? r.guardians?.[0] : r.guardians) as
-      | { nombre?: string | null; relacion?: string | null; telefono?: string | null }
-      | null
-      | undefined;
+  // 6) Mapeo final de filas enriquecidas
+  const atletas: AtletaRow[] = atletasRaw.map((r) => {
+    const g = r.guardian_id ? tutoresPorId[r.guardian_id] : null;
     return {
       id: r.id,
       user_id: r.user_id,
       nombre: r.nombre,
       apellido: r.apellido,
       full_name: r.full_name,
-    deporte: r.deporte,
-    posicion: r.posicion,
-    categoria: r.categoria,
-    equipo: r.equipo,
-    altura: r.altura,
-    peso: r.peso,
-    pais: r.pais,
-    ciudad: r.ciudad,
-    correo: r.correo,
-    telefono: r.telefono,
-    pierna_mano_dominante: r.pierna_mano_dominante,
-    objetivo: r.objetivo,
-    que_quiere_mejorar: r.que_quiere_mejorar,
-    habito_a_cambiar: r.habito_a_cambiar,
-    sueno_deportivo: r.sueno_deportivo,
-    estado: r.estado,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-    tutor_nombre: g?.nombre ?? null,
-    tutor_relacion: g?.relacion ?? null,
-    tutor_telefono: g?.telefono ?? null,
-    fotos: r.user_id ? fotosPorUser[r.user_id as string] ?? [] : [],
-  };
+      deporte: r.deporte,
+      posicion: r.posicion,
+      categoria: r.categoria,
+      equipo: r.equipo,
+      altura: r.altura,
+      peso: r.peso,
+      pais: r.pais,
+      ciudad: r.ciudad,
+      correo: r.correo,
+      telefono: r.telefono,
+      pierna_mano_dominante: r.pierna_mano_dominante,
+      objetivo: r.objetivo,
+      que_quiere_mejorar: r.que_quiere_mejorar,
+      habito_a_cambiar: r.habito_a_cambiar,
+      sueno_deportivo: r.sueno_deportivo,
+      estado: r.estado,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      tutor_nombre: g?.nombre ?? null,
+      tutor_relacion: g?.relacion ?? null,
+      tutor_telefono: g?.telefono ?? null,
+      fotos: r.user_id ? fotosPorUser[r.user_id as string] ?? [] : [],
+    };
   });
 
   return { atletas, categorias, deportes };
