@@ -1,46 +1,60 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
 
-// --- Guardar perfil de atleta (onboarding) ---
-// Crea o actualiza el registro en public.athletes del usuario autenticado.
 export async function saveAthleteProfile(formData: FormData): Promise<OnboardingResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Sesión no iniciada." };
 
-  // Solo campos permitidos; nunca confiar en el cliente.
-  const allowed = [
-    "nombre", "apellido", "fecha_nacimiento", "deporte", "posicion", "categoria",
-    "equipo", "altura", "peso", "pais", "ciudad", "correo", "telefono",
-    "pierna_mano_dominante", "horario_escolar", "horario_entrenamiento",
-    "objetivo", "que_quiere_mejorar", "habito_a_cambiar", "sueno_deportivo",
-  ];
+  const nombre = String(formData.get("nombre") || "").trim();
+  const apellido = String(formData.get("apellido") || "").trim();
 
-  const payload: Record<string, unknown> = {};
-  for (const key of allowed) {
-    const v = formData.get(key);
-    // Convertir numéricos
-    if (key === "altura" || key === "peso") {
-      payload[key] = v && String(v).trim() !== "" ? Number(v) : null;
-    } else if (v !== null && String(v).trim() !== "") {
-      payload[key] = String(v).trim();
-    }
-  }
-
-  if (!payload.nombre || !payload.apellido) {
+  if (!nombre || !apellido) {
     return { ok: false, error: "Nombre y apellido son obligatorios." };
   }
 
-  const service = createServiceClient();
+  const alturaVal = formData.get("altura");
+  const pesoVal = formData.get("peso");
 
-  // Ver si ya existe perfil
+  const payload: Record<string, unknown> = {
+    nombre: nombre,
+    apellido: apellido,
+    fecha_nacimiento: formData.get("fecha_nacimiento") || null,
+    deporte: formData.get("deporte") || null,
+    posicion: formData.get("posicion") || null,
+    categoria: formData.get("categoria") || null,
+    equipo: formData.get("equipo") || null,
+    altura: alturaVal && String(alturaVal).trim() !== "" ? Number(alturaVal) : null,
+    peso: pesoVal && String(pesoVal).trim() !== "" ? Number(pesoVal) : null,
+    pais: formData.get("pais") || null,
+    ciudad: formData.get("ciudad") || null,
+    correo: formData.get("correo") || user.email || null,
+    telefono: formData.get("telefono") || null,
+    pierna_mano_dominante: formData.get("pierna_mano_dominante") || null,
+    horario_escolar: formData.get("horario_escolar") || null,
+    horario_entrenamiento: formData.get("horario_entrenamiento") || null,
+    objetivo: formData.get("objetivo") || null,
+    que_quiere_mejorar: formData.get("que_quiere_mejorar") || null,
+    habito_a_cambiar: formData.get("habito_a_cambiar") || null,
+    sueno_deportivo: formData.get("sueno_deportivo") || null,
+    estado: "activo",
+  };
+
+  const service = createServiceClient();
+  
+  // Actualizar también la tabla users para asegurar que la columna role y full_name estén sincronizadas
+  await service
+    .from("users")
+    .update({ 
+      role: "athlete",
+      full_name: `${nombre} ${apellido}`.trim() 
+    })
+    .eq("id", user.id);
+
   const { data: existing } = await service
     .from("athletes")
     .select("id")
@@ -65,7 +79,7 @@ export async function saveAthleteProfile(formData: FormData): Promise<Onboarding
     return { ok: false, error: err.message || "No se pudo guardar el perfil." };
   }
 
-  redirect("/dashboard");
+  return { ok: true };
 }
 
 // --- Guardar perfil de tutor + vincular a atleta (onboarding) ---
@@ -81,7 +95,7 @@ export async function saveGuardian(formData: FormData): Promise<OnboardingResult
   const relacion = String(formData.get("relacion") || "").trim();
   const telefono = String(formData.get("telefono") || "").trim();
   const documento = String(formData.get("documento") || "").trim();
-  // Datos del atleta a cargo
+  
   const aNombre = String(formData.get("atleta_nombre") || "").trim();
   const aApellido = String(formData.get("atleta_apellido") || "").trim();
   const aDeporte = String(formData.get("atleta_deporte") || "").trim();
@@ -95,15 +109,18 @@ export async function saveGuardian(formData: FormData): Promise<OnboardingResult
 
   const service = createServiceClient();
 
-  // 1) Actualizar nombre del tutor en public.users
   const { error: uerr } = await service
     .from("users")
-    .update({ nombre, apellido, telefono: telefono || null, rol: "tutor" })
+    .update({ 
+      role: "tutor",
+      full_name: `${nombre} ${apellido}`.trim(),
+      telefono: telefono || null 
+    })
     .eq("id", user.id);
   if (uerr) return { ok: false, error: uerr.message };
 
-  // 2) Crear (o reutilizar) el atleta
   let athleteId: string | null = null;
+  
   const { data: existingAthlete } = await service
     .from("athletes")
     .select("id")
@@ -120,6 +137,7 @@ export async function saveGuardian(formData: FormData): Promise<OnboardingResult
         nombre: aNombre,
         apellido: aApellido,
         deporte: aDeporte || null,
+        created_by: user.id,
       })
       .select("id")
       .single();
@@ -127,7 +145,6 @@ export async function saveGuardian(formData: FormData): Promise<OnboardingResult
     athleteId = inserted.id;
   }
 
-  // 3) Crear el guardián vinculado
   const { error: gerr } = await service.from("guardians").insert({
     user_id: user.id,
     athlete_id: athleteId,
@@ -139,5 +156,5 @@ export async function saveGuardian(formData: FormData): Promise<OnboardingResult
   });
   if (gerr) return { ok: false, error: gerr.message };
 
-  redirect("/dashboard");
+  return { ok: true };
 }

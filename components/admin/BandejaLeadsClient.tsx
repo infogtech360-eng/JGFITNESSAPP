@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { LeadRow } from "@/lib/data/leads";
 import { actualizarEstadoLead, type EstadoLead } from "@/lib/actions/leads";
 
-// Gestor de prospectos (public.leads) para el panel admin — vista tabla.
-// Incluye: badges de color por plan, selector de estado (Nuevo / En Proceso /
-// Convertido) que persiste vía la server action con service-role, y botón
-// "Contactar WhatsApp" que abre chat directo (wa.me) con el número del prospecto.
 type Props = {
   leads: LeadRow[];
   total: number;
@@ -41,7 +38,14 @@ function colorPlan(plan: string | null) {
 
 export function BandejaLeadsClient({ leads, total }: Props) {
   const [filtro, setFiltro] = useState("todos");
+  const [isMounted, setIsMounted] = useState(false);
   const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  // Evita errores de hidratación de Next.js renderizando selects dinámicos sólo en cliente
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const visibles =
     filtro === "todos" ? leads : leads.filter((l) => (l.estado || "nuevo") === filtro);
@@ -69,13 +73,19 @@ export function BandejaLeadsClient({ leads, total }: Props) {
   };
 
   const cambiaEstado = async (id: string, estado: EstadoLead) => {
-    // Feedback visual inmediato sin recarga completa.
     startTransition(async () => {
-      await actualizarEstadoLead({ id, estado });
-      // Recarga filtros/orden del panel para reflejar el nuevo estado.
-      window.location.reload();
+      const res = await actualizarEstadoLead({ id, estado });
+      if (res.ok) {
+        router.refresh();
+      } else {
+        alert(res.error || "Error al actualizar el estado");
+      }
     });
   };
+
+  if (!isMounted) {
+    return null; // Evita el parpadeo de hidratación inicial
+  }
 
   return (
     <div>

@@ -15,10 +15,24 @@ export default function OnboardingAthleteForm() {
     e.preventDefault();
     setLoading(true);
     setStatus(null);
+    
     const fd = new FormData(e.currentTarget);
+    
+    // Adjuntar las fotos seleccionadas al FormData
+    photos.forEach((p) => {
+      if (p.file) {
+        fd.append("photos", p.file);
+      }
+    });
+
     const res = await saveAthleteProfile(fd);
-    setStatus(res);
-    if (res.ok) return; // redirige vía server action
+    
+    if (res?.ok) {
+      window.location.href = "/login";
+      return;
+    }
+    
+    setStatus(res || { ok: false, error: "Ocurrió un error inesperado." });
     setLoading(false);
   };
 

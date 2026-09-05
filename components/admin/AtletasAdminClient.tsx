@@ -14,6 +14,8 @@ export interface AtletaRow {
   equipo?: string | null
   tutor_nombre?: string | null
   estado?: string | null
+  email?: string | null
+  telefono?: string | null
   [key: string]: any
 }
 
@@ -37,6 +39,7 @@ export function AtletasAdminClient({
   const [busqueda, setBusqueda] = useState(filtrosIniciales?.q || '')
   const [atletaAEvaluar, setAtletaAEvaluar] = useState<{ id: string; nombre: string } | null>(null)
   const [listaAtletas, setListaAtletas] = useState<AtletaRow[]>(atletas || [])
+  const [cargandoId, setCargandoId] = useState<string | null>(null)
   const supabase = createClient()
 
   const atletasFiltrados = listaAtletas.filter((atleta) => {
@@ -44,19 +47,54 @@ export function AtletasAdminClient({
     return nombreCompleto.includes(busqueda.toLowerCase())
   })
 
-  const handleCambiarEstado = async (id: string, nuevoEstado: string) => {
+  const handleCambiarEstado = async (atleta: AtletaRow, nuevoEstado: string) => {
     setListaAtletas((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, estado: nuevoEstado } : a))
+      prev.map((a) => (a.id === atleta.id ? { ...a, estado: nuevoEstado } : a))
     )
 
-    const { error } = await supabase
+    // 1. Actualizar el estado en la tabla leads
+    const { error: errorLead } = await supabase
       .from('leads')
       .update({ estado: nuevoEstado })
-      .eq('id', id)
+      .eq('id', atleta.id)
 
-    if (error) {
-      console.error('Error al actualizar estado:', error.message)
-      alert('Hubo un error al actualizar el estado en la base de datos.')
+    if (errorLead) {
+      console.error('Error al actualizar estado:', errorLead.message)
+      alert('Hubo un error al actualizar el estado.')
+      return
+    }
+
+    // 2. Si el estado cambia a "Convertido", automatizamos la creación de su perfil de atleta
+    if (nuevoEstado === 'Convertido' && atleta.email) {
+      setCargandoId(atleta.id)
+      try {
+        // Llamada a una API o función que registra al usuario en Supabase Auth y crea su perfil
+        const response = await fetch('/api/admin/convertir-atleta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leadId: atleta.id,
+            email: atleta.email,
+            nombre: atleta.nombre || 'Atleta',
+            apellido: atleta.apellido || '',
+            deporte: atleta.deporte || 'Fútbol',
+            categoria: atleta.categoria || 'General',
+            posicion: atleta.posicion || '',
+          }),
+        })
+
+        const data = await response.json()
+        if (response.ok) {
+          alert(`¡Atleta convertido con éxito! Se ha generado su cuenta de acceso para ${atleta.email}.`)
+        } else {
+          console.error('Error en conversión automática:', data.error)
+          alert(`El estado cambió, pero hubo un detalle al crear las credenciales: ${data.error}`)
+        }
+      } catch (err) {
+        console.error('Error de red al convertir:', err)
+      } finally {
+        setCargandoId(null)
+      }
     }
   }
 
@@ -94,15 +132,21 @@ export function AtletasAdminClient({
                 <td className="px-6 py-4 text-gray-600">{atleta.categoria || 'N/A'}</td>
                 <td className="px-6 py-4 text-gray-600">{atleta.posicion || 'N/A'}</td>
                 <td className="px-6 py-4">
-                  <select
-                    value={atleta.estado || 'Nuevo'}
-                    onChange={(e) => handleCambiarEstado(atleta.id, e.target.value)}
-                    className="text-xs font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  >
-                    <option value="Nuevo">Nuevo</option>
-                    <option value="En Proceso">En Proceso</option>
-                    <option value="Convertido">Convertido</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={atleta.estado || 'Nuevo'}
+                      onChange={(e) => handleCambiarEstado(atleta, e.target.value)}
+                      disabled={cargandoId === atleta.id}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                    >
+                      <option value="Nuevo">Nuevo</option>
+                      <option value="En Proceso">En Proceso</option>
+                      <option value="Convertido">Convertido</option>
+                    </select>
+                    {cargandoId === atleta.id && (
+                      <span className="text-xs text-blue-600 animate-pulse">Generando...</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right flex justify-end gap-3 font-medium">
                   <button
