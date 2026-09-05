@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 
 export function AtletasAdminClient({
   atletas,
@@ -55,12 +56,12 @@ export function AtletasAdminClient({
                   <td className="p-4">{atleta.deporte}</td>
                   <td className="p-4">{atleta.categoria}</td>
                   <td className="p-4">
-                    <a
-                      href={`/dashboard/admin/atleta/${atleta.id}`}
+                    <Link
+                      href={`/dashboard/admin/atletas/${atleta.id}`}
                       className="font-semibold text-blue-600 hover:underline"
                     >
                       Ver perfil
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))
