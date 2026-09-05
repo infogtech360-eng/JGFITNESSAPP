@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import ModalEvaluacion from "./ModalEvaluacion";
 
 export function AtletasAdminClient({
   atletas,
@@ -16,6 +17,7 @@ export function AtletasAdminClient({
   total: number;
 }) {
   const [busqueda, setBusqueda] = useState(filtrosIniciales.q);
+  const [atletaAEvaluare, setAtletaAEvaluare] = useState<any | null>(null);
 
   return (
     <div className="space-y-6">
@@ -55,13 +57,20 @@ export function AtletasAdminClient({
                   <td className="p-4 font-semibold text-gray-900">{atleta.nombre}</td>
                   <td className="p-4">{atleta.deporte}</td>
                   <td className="p-4">{atleta.categoria}</td>
-                  <td className="p-4">
+                  <td className="p-4 flex items-center gap-4">
                     <Link
                       href={`/dashboard/admin/atleta/${atleta.id}`}
                       className="font-semibold text-blue-600 hover:underline"
                     >
                       Ver perfil
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => setAtletaAEvaluare(atleta)}
+                      className="font-semibold text-purple-600 hover:underline"
+                    >
+                      Evaluar
+                    </button>
                   </td>
                 </tr>
               ))
@@ -69,6 +78,14 @@ export function AtletasAdminClient({
           </tbody>
         </table>
       </div>
+
+      {atletaAEvaluare && (
+        <ModalEvaluacion
+          atletaId={atletaAEvaluare.id}
+          atletaNombre={atletaAEvaluare.nombre}
+          onClose={() => setAtletaAEvaluare(null)}
+        />
+      )}
     </div>
   );
 }
