@@ -1,6 +1,6 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/service";
+import { createClient } from "@/lib/supabase/server";
 
 export type EstadoLead = "nuevo" | "en_proceso" | "convertido";
 
@@ -9,8 +9,7 @@ export async function actualizarEstadoLead(input: {
   estado: EstadoLead;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    // Usamos el cliente de servicio para saltarnos las restricciones de RLS
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     // 1. Obtener los datos del lead antes de actualizarlo
     const { data: lead, error: leadError } = await supabase
