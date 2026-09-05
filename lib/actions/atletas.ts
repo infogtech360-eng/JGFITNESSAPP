@@ -43,11 +43,13 @@ export async function actualizarFichaAtleta(formData: FormData) {
   const peso = parseFloat(formData.get('peso') as string)
   const plan_nutricional = formData.get('plan_nutricional') as string
 
-  // Calcular IMC automáticamente
-  const imc = estatura > 0 ? parseFloat((peso / (estatura * estatura)).toFixed(1)) : null
+  // Calcular IMC automáticamente manejando formato de metros o centímetros de forma segura
+  const alturaMetros = estatura > 3 ? estatura / 100 : estatura
+  const imc = alturaMetros > 0 ? parseFloat((peso / (alturaMetros * alturaMetros)).toFixed(1)) : null
 
+  // CORREGIDO: Se apunta a la tabla 'athletes' en lugar de 'leads'
   const { error } = await supabase
-    .from('leads')
+    .from('athletes')
     .update({ estatura, peso, imc, plan_nutricional })
     .eq('id', atletaId)
 
