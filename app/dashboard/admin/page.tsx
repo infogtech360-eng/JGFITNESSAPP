@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAtletas } from "@/lib/data/atletas";
 import { getLeads } from "@/lib/data/leads";
 import { getKpis } from "@/lib/data/dashboard";
-import { AtletasAdminClient } from "@/components/admin/AtletasAdminClient";
+import AtletasAdminClient from "@/components/admin/AtletasAdminClient";
 import { BandejaLeadsClient } from "@/components/admin/BandejaLeadsClient";
 import { NavAdmin } from "@/components/admin/NavAdmin";
 import { KpiCards } from "@/components/admin/KpiCards";
