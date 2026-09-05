@@ -56,7 +56,7 @@ export function AtletasAdminClient({
                   <td className="p-4">{atleta.categoria}</td>
                   <td className="p-4">
                     <a
-                      href={`/dashboard/admin/atletas/${atleta.id}`}
+                      href={`/dashboard/admin/atleta/${atleta.id}`}
                       className="font-semibold text-blue-600 hover:underline"
                     >
                       Ver perfil
