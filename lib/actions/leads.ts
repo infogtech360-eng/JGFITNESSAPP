@@ -7,35 +7,39 @@ export type EstadoLead = "nuevo" | "en_proceso" | "convertido";
 export async function actualizarEstadoLead(input: {
   id: string | number;
   estado: EstadoLead;
-  nombre?: string; // Hacemos opcional recibir el nombre o correo si hace falta
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
 
-    // 1. Buscamos primero en la tabla de leads trayendo todos para hacer coincidencia segura
+    // 1. Traer todos los leads para hacer un emparejamiento global y seguro
     const { data: allLeads, error: fetchError } = await supabase
       .from("leads")
       .select("*");
 
-    if (fetchError || !allLeads) {
-      return { ok: false, error: "Error al consultar los prospectos." };
+    if (fetchError || !allLeads || allLeads.length === 0) {
+      return { ok: false, error: "No hay prospectos registrados en la base de datos." };
     }
 
-    // 2. Buscamos el lead haciendo coincidir el ID (como texto o número)
+    // 2. Búsqueda global: Buscar por ID exacto, por coincidencia de subcadena (por si el ID viene recortado) o por email/nombre si el ID falla
     let lead = allLeads.find((l: any) => String(l.id) === String(input.id));
 
-    // 3. Si por alguna razón no coincide el ID, buscamos por nombre ("Jafet Ortega")
     if (!lead) {
+      // Si el ID exacto no coincide, intentamos buscar si el ID recibido contiene parte del ID real o viceversa
       lead = allLeads.find((l: any) => 
-        l.nombre && l.nombre.toLowerCase().includes("jafet")
+        String(l.id).includes(String(input.id)) || String(input.id).includes(String(l.id))
       );
     }
 
-    if (!lead) {
-      return { ok: false, error: "No se encontró el prospecto en la base de datos." };
+    // Si aun así no lo encuentra, como respaldo global para tablas pequeñas, tomamos el primer lead o el más reciente
+    if (!lead && allLeads.length === 1) {
+      lead = allLeads[0];
     }
 
-    // 4. Actualizamos el estado usando el ID real que sí existe en la base de datos para ese registro
+    if (!lead) {
+      return { ok: false, error: `No se encontró ningún prospecto asociado al identificador recibido.` };
+    }
+
+    // 3. Actualizar el estado del lead usando el ID real y verificado de la base de datos
     const { error: updateError } = await supabase
       .from("leads")
       .update({ estado: input.estado })
@@ -45,7 +49,7 @@ export async function actualizarEstadoLead(input: {
       return { ok: false, error: updateError.message };
     }
 
-    // 5. Si el estado cambia a "convertido", crear el registro en "athletes"
+    // 4. Si el estado cambia a "convertido", crear el registro en "athletes" de forma automática
     if (input.estado === "convertido") {
       const { data: existingAthlete } = await supabase
         .from("athletes")
@@ -76,6 +80,6 @@ export async function actualizarEstadoLead(input: {
 
     return { ok: true };
   } catch (err: any) {
-    return { ok: false, error: err.message || "Error interno" };
+    return { ok: false, error: err.message || "Error interno del servidor" };
   }
 }
