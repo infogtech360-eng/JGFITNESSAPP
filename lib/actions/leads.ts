@@ -5,21 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 export type EstadoLead = "nuevo" | "en_proceso" | "convertido";
 
 export async function actualizarEstadoLead(input: {
-  id: string;
+  id: string | number;
   estado: EstadoLead;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
 
-    // 1. Obtener los datos del lead antes de actualizarlo
+    // 1. Intentar buscar el lead convirtiendo el ID o buscándolo directamente
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .select("*")
       .eq("id", input.id)
-      .single();
+      .maybeSingle();
 
     if (leadError || !lead) {
-      return { ok: false, error: "No se encontró el prospecto." };
+      return { ok: false, error: `No se encontró el prospecto con ID: ${input.id}` };
     }
 
     // 2. Actualizar el estado del lead
