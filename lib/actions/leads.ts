@@ -5,51 +5,34 @@ import { createClient } from "@/lib/supabase/server";
 export type EstadoLead = "nuevo" | "en_proceso" | "convertido";
 
 export async function actualizarEstadoLead(input: {
-  id: string | number;
+  id: string;
   estado: EstadoLead;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient();
 
-    // 1. Traer todos los leads para hacer un emparejamiento global y seguro
-    const { data: allLeads, error: fetchError } = await supabase
+    // 1. Consultar el lead directamente usando su ID UUID exacto
+    const { data: lead, error: leadError } = await supabase
       .from("leads")
-      .select("*");
+      .select("*")
+      .eq("id", input.id)
+      .maybeSingle();
 
-    if (fetchError || !allLeads || allLeads.length === 0) {
-      return { ok: false, error: "No hay prospectos registrados en la base de datos." };
+    if (leadError || !lead) {
+      return { ok: false, error: "No se encontró el prospecto especificado." };
     }
 
-    // 2. Búsqueda global: Buscar por ID exacto, por coincidencia de subcadena (por si el ID viene recortado) o por email/nombre si el ID falla
-    let lead = allLeads.find((l: any) => String(l.id) === String(input.id));
-
-    if (!lead) {
-      // Si el ID exacto no coincide, intentamos buscar si el ID recibido contiene parte del ID real o viceversa
-      lead = allLeads.find((l: any) => 
-        String(l.id).includes(String(input.id)) || String(input.id).includes(String(l.id))
-      );
-    }
-
-    // Si aun así no lo encuentra, como respaldo global para tablas pequeñas, tomamos el primer lead o el más reciente
-    if (!lead && allLeads.length === 1) {
-      lead = allLeads[0];
-    }
-
-    if (!lead) {
-      return { ok: false, error: `No se encontró ningún prospecto asociado al identificador recibido.` };
-    }
-
-    // 3. Actualizar el estado del lead usando el ID real y verificado de la base de datos
+    // 2. Actualizar el estado del lead de forma directa
     const { error: updateError } = await supabase
       .from("leads")
       .update({ estado: input.estado })
-      .eq("id", lead.id);
+      .eq("id", input.id);
 
     if (updateError) {
       return { ok: false, error: updateError.message };
     }
 
-    // 4. Si el estado cambia a "convertido", crear el registro en "athletes" de forma automática
+    // 3. Si el estado cambia a "convertido", registrar automáticamente en la tabla "athletes"
     if (input.estado === "convertido") {
       const { data: existingAthlete } = await supabase
         .from("athletes")
