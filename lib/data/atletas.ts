@@ -84,16 +84,16 @@ export async function getAtletas(filtros: FiltrosAtletas = {}): Promise<{
     ];
   }
 
-  // 3) Consulta principal de atletas con filtros + join al tutor (FK guardian_id).
-  let query = supabase
-    .from("athletes")
-    .select(
-      `id, user_id, nombre, apellido, full_name, deporte, posicion, categoria, equipo,
-       altura, peso, pais, ciudad, correo, telefono, pierna_mano_dominante, objetivo,
-       que_quiere_mejorar, habito_a_cambiar, sueno_deportivo, estado, created_at, updated_at,
-       guardians:guardian_id(id, nombre, relacion, telefono)`
-    )
-    .order("created_at", { ascending: false });
+  // 3) Consulta principal de atletas con filtros + left join al tutor (FK guardian_id).
+let query = supabase
+  .from("athletes")
+  .select(
+    `id, user_id, nombre, apellido, full_name, deporte, posicion, categoria, equipo,
+     altura, peso, pais, ciudad, correo, telefono, pierna_mano_dominante, objetivo,
+     que_quiere_mejorar, habito_a_cambiar, sueno_deportivo, estado, created_at, updated_at,
+     guardians:guardian_id!left(id, nombre, relacion, telefono)`
+  )
+  .order("created_at", { ascending: false });
 
   if (filtros.categoria && filtros.categoria !== "todas") {
     query = query.eq("categoria", filtros.categoria);
