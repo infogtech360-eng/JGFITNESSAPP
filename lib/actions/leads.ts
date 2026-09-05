@@ -9,8 +9,8 @@ export async function actualizarEstadoLead(input: {
   estado: EstadoLead;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
+    // Usamos el cliente de servicio para saltarnos las restricciones de RLS
     const supabase = createServiceClient();
-    console.log("Servidor ejecutando cambio de estado para lead:", input.id, "a:", input.estado);
 
     // 1. Obtener los datos del lead antes de actualizarlo
     const { data: lead, error: leadError } = await supabase
@@ -20,7 +20,6 @@ export async function actualizarEstadoLead(input: {
       .single();
 
     if (leadError || !lead) {
-      console.error("Error buscando lead:", leadError);
       return { ok: false, error: "No se encontró el prospecto." };
     }
 
@@ -31,7 +30,6 @@ export async function actualizarEstadoLead(input: {
       .eq("id", input.id);
 
     if (updateError) {
-      console.error("Error actualizando lead:", updateError);
       return { ok: false, error: updateError.message };
     }
 
@@ -66,7 +64,6 @@ export async function actualizarEstadoLead(input: {
 
     return { ok: true };
   } catch (err: any) {
-    console.error("Excepción en actualizarEstadoLead:", err);
     return { ok: false, error: err.message || "Error interno" };
   }
 }
