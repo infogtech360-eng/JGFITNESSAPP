@@ -11,28 +11,45 @@ export async function actualizarEstadoLead(input: {
   try {
     const supabase = await createClient();
 
-    // 1. Intentar buscar el lead convirtiendo el ID o buscándolo directamente
-    const { data: lead, error: leadError } = await supabase
+    console.log("--> Intentando actualizar lead con ID recibido:", input.id, "Tipo:", typeof input.id);
+
+    // 1. Intentar buscar el lead directamente por ID
+    let { data: lead, error: leadError } = await supabase
       .from("leads")
       .select("*")
       .eq("id", input.id)
       .maybeSingle();
 
-    if (leadError || !lead) {
+    // 2. Si no lo encuentra, intentamos seleccionando todos y buscando manualmente (para debug o desajuste de tipos)
+    if (!lead) {
+      console.log("--> Búsqueda por ID directo falló, intentando listar todos para comparar...");
+      const { data: allLeads } = await supabase.from("leads").select("*");
+      console.log("--> Leads disponibles en BD:", allLeads);
+      
+      if (allLeads && allLeads.length > 0) {
+        // Buscamos coincidencia flexible (string o número)
+        lead = allLeads.find((l: any) => String(l.id) === String(input.id)) || null;
+      }
+    }
+
+    if (!lead) {
       return { ok: false, error: `No se encontró el prospecto con ID: ${input.id}` };
     }
 
-    // 2. Actualizar el estado del lead
+    console.log("--> Lead encontrado con éxito:", lead);
+
+    // 3. Actualizar el estado del lead usando el ID real del registro encontrado
     const { error: updateError } = await supabase
       .from("leads")
       .update({ estado: input.estado })
-      .eq("id", input.id);
+      .eq("id", lead.id);
 
     if (updateError) {
+      console.error("--> Error al actualizar en BD:", updateError);
       return { ok: false, error: updateError.message };
     }
 
-    // 3. Si el estado cambia a "convertido", crear el registro en "athletes"
+    // 4. Si el estado cambia a "convertido", crear el registro en "athletes"
     if (input.estado === "convertido") {
       const { data: existingAthlete } = await supabase
         .from("athletes")
@@ -63,6 +80,7 @@ export async function actualizarEstadoLead(input: {
 
     return { ok: true };
   } catch (err: any) {
+    console.error("--> Error interno capturado:", err);
     return { ok: false, error: err.message || "Error interno" };
   }
 }
