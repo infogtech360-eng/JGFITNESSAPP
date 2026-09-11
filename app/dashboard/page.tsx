@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import DailyMotivationCard from '@/components/DailyMotivationCard'
 
 export default function AtletaDashboard() {
   const [pilarSeleccionado, setPilarSeleccionado] = useState<string | null>(null)
@@ -81,6 +82,9 @@ export default function AtletaDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Motivación diaria: primer bloque visible del dashboard */}
+      <DailyMotivationCard />
+
       {/* Encabezado Dinámico con datos de Supabase y formato robusto de estatura/IMC */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
